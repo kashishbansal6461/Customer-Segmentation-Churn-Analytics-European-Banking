@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
 
 
 def load_data(path: str | Path) -> pd.DataFrame:
@@ -78,10 +77,10 @@ def overall_kpis(df: pd.DataFrame) -> dict:
     inactive = df[df["IsActiveMember"] == 0]
     engagement_drop_indicator = inactive["Exited"].mean() if not inactive.empty else 0.0
 
-    churned_customers = len(df[df["Exited"] == 1])
+    churned_customers = int((df["Exited"] == 1).sum())
     retained_customers = total_customers - churned_customers
 
-    active_members = len(df[df["IsActiveMember"] == 1])
+    active_members = int((df["IsActiveMember"] == 1).sum())
     inactive_members = total_customers - active_members
 
     avg_balance = df["Balance"].mean()
@@ -157,25 +156,6 @@ def churn_profile_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     st.set_page_config(page_title="Bank Churn Analytics Dashboard", layout="wide")
-    
-    # Custom CSS for better styling
-    st.markdown("""
-        <style>
-        .metric-card {
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .kpi-header {
-            font-size: 24px;
-            font-weight: bold;
-            color: #1f77b4;
-            margin-bottom: 20px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
     st.title("🏦 European Banking Customer Segmentation & Churn Pattern Analytics")
     st.markdown("---")
 
@@ -188,36 +168,35 @@ def main():
     df = load_data(data_path)
     df = prepare_segments(df)
 
-    # Sidebar Filters
     with st.sidebar:
         st.header("📊 Dashboard Filters")
         st.markdown("---")
-        
+
         geography = st.multiselect(
             "📍 Select Geography",
             sorted(df["Geography"].unique()),
             default=sorted(df["Geography"].unique()),
         )
-        
+
         genders = st.multiselect(
             "👥 Select Gender",
             sorted(df["Gender"].unique()),
             default=sorted(df["Gender"].unique()),
         )
-        
+
         age_min, age_max = st.slider(
             "🎂 Age Range",
             int(df["Age"].min()),
             int(df["Age"].max()),
             (int(df["Age"].min()), int(df["Age"].max())),
         )
-        
+
         credit_bands = st.multiselect(
             "💳 Credit Score Band",
             sorted(df["CreditScoreBand"].unique()),
             default=sorted(df["CreditScoreBand"].unique()),
         )
-        
+
         tenure_groups = st.multiselect(
             "⏱️ Tenure Group",
             sorted(df["TenureGroup"].unique()),
@@ -225,11 +204,11 @@ def main():
         )
 
     filtered = df[
-        (df["Geography"].isin(geography))
-        & (df["Gender"].isin(genders))
-        & (df["Age"].between(age_min, age_max))
-        & (df["CreditScoreBand"].isin(credit_bands))
-        & (df["TenureGroup"].isin(tenure_groups))
+        df["Geography"].isin(geography)
+        & df["Gender"].isin(genders)
+        & df["Age"].between(age_min, age_max)
+        & df["CreditScoreBand"].isin(credit_bands)
+        & df["TenureGroup"].isin(tenure_groups)
     ].copy()
 
     if filtered.empty:
@@ -238,53 +217,33 @@ def main():
 
     kpis = overall_kpis(filtered)
 
-    # 1. EXECUTIVE KPI OVERVIEW
     st.subheader("📈 Executive KPI Overview")
-    
     col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("👥 Total Customers", f"{kpis['total_customers']:,}")
-    with col2:
-        st.metric("📉 Churned", f"{kpis['churned_customers']:,}", delta=f"{kpis['overall_churn_rate']:.1%}")
-    with col3:
-        st.metric("✅ Retained", f"{kpis['retained_customers']:,}", delta=f"{1-kpis['overall_churn_rate']:.1%}")
-    with col4:
-        st.metric("💰 Avg Balance", f"€{kpis['avg_balance']:,.0f}")
-    with col5:
-        st.metric("💵 Avg Salary", f"€{kpis['avg_salary']:,.0f}")
+    col1.metric("👥 Total Customers", f"{kpis['total_customers']:,}")
+    col2.metric("📉 Churned", f"{kpis['churned_customers']:,}")
+    col3.metric("✅ Retained", f"{kpis['retained_customers']:,}")
+    col4.metric("💰 Avg Balance", f"€{kpis['avg_balance']:,.0f}")
+    col5.metric("💵 Avg Salary", f"€{kpis['avg_salary']:,.0f}")
 
     st.markdown("---")
 
-    # 2. KEY METRICS ROW
     col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("📊 Overall Churn Rate", f"{kpis['overall_churn_rate']:.2%}")
-    with col2:
-        st.metric("🎯 Segment Churn Rate", f"{kpis['segment_churn_rate']:.2%}")
-    with col3:
-        st.metric("💎 High-Value Churn", f"{kpis['high_value_churn_ratio']:.2%}")
-    with col4:
-        st.metric("🌍 Geographic Risk", f"{kpis['geographic_risk_index']:.2%}")
-    with col5:
-        st.metric("😴 Inactive Risk", f"{kpis['engagement_drop_indicator']:.2%}")
+    col1.metric("📊 Overall Churn Rate", f"{kpis['overall_churn_rate']:.2%}")
+    col2.metric("🎯 Segment Churn Rate", f"{kpis['segment_churn_rate']:.2%}")
+    col3.metric("💎 High-Value Churn", f"{kpis['high_value_churn_ratio']:.2%}")
+    col4.metric("🌍 Geographic Risk", f"{kpis['geographic_risk_index']:.2%}")
+    col5.metric("😴 Inactive Risk", f"{kpis['engagement_drop_indicator']:.2%}")
 
     st.markdown("---")
 
-    # 3. ENGAGEMENT METRICS
     col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("🟢 Active Members", f"{kpis['active_members']:,}")
-    with col2:
-        st.metric("🔴 Inactive Members", f"{kpis['inactive_members']:,}")
-    with col3:
-        st.metric("📅 Avg Tenure (Years)", f"{kpis['avg_tenure']:.1f}")
+    col1.metric("🟢 Active Members", f"{kpis['active_members']:,}")
+    col2.metric("🔴 Inactive Members", f"{kpis['inactive_members']:,}")
+    col3.metric("📅 Avg Tenure", f"{kpis['avg_tenure']:.1f} yrs")
 
     st.markdown("---")
 
-    # 4. VISUALIZATIONS
     st.subheader("📊 Churn Analysis by Dimensions")
-
-    # Geography, Age, Tenure Charts
     col_left, col_center, col_right = st.columns(3)
 
     with col_left:
@@ -301,7 +260,6 @@ def main():
             title="Churn Rate by Geography",
             text_auto=".2%",
             labels={"churn_rate": "Churn Rate"},
-            color_discrete_sequence=px.colors.qualitative.Set2
         )
         fig_geography.update_layout(height=400)
         st.plotly_chart(fig_geography, use_container_width=True)
@@ -314,7 +272,6 @@ def main():
         age_order = ["<30", "30-45", "46-60", "60+"]
         age_summary["AgeGroup"] = pd.Categorical(age_summary["AgeGroup"], categories=age_order, ordered=True)
         age_summary = age_summary.sort_values("AgeGroup")
-        
         fig_age = px.bar(
             age_summary,
             x="AgeGroup",
@@ -323,7 +280,6 @@ def main():
             title="Churn Rate by Age Group",
             text_auto=".2%",
             labels={"churn_rate": "Churn Rate"},
-            color_discrete_sequence=px.colors.qualitative.Pastel
         )
         fig_age.update_layout(height=400)
         st.plotly_chart(fig_age, use_container_width=True)
@@ -336,7 +292,6 @@ def main():
         tenure_order = ["New", "Mid-term", "Long-term"]
         tenure_summary["TenureGroup"] = pd.Categorical(tenure_summary["TenureGroup"], categories=tenure_order, ordered=True)
         tenure_summary = tenure_summary.sort_values("TenureGroup")
-        
         fig_tenure = px.bar(
             tenure_summary,
             x="TenureGroup",
@@ -345,16 +300,13 @@ def main():
             title="Churn Rate by Tenure Group",
             text_auto=".2%",
             labels={"churn_rate": "Churn Rate"},
-            color_discrete_sequence=px.colors.qualitative.Light
         )
         fig_tenure.update_layout(height=400)
         st.plotly_chart(fig_tenure, use_container_width=True)
 
     st.markdown("---")
 
-    # 5. CREDIT SCORE & BALANCE ANALYSIS
     col_left, col_right = st.columns(2)
-
     with col_left:
         credit_summary = (
             filtered.groupby("CreditScoreBand", as_index=False)["Exited"]
@@ -363,7 +315,6 @@ def main():
         credit_order = ["Low", "Medium", "High"]
         credit_summary["CreditScoreBand"] = pd.Categorical(credit_summary["CreditScoreBand"], categories=credit_order, ordered=True)
         credit_summary = credit_summary.sort_values("CreditScoreBand")
-        
         fig_credit = px.bar(
             credit_summary,
             x="CreditScoreBand",
@@ -372,7 +323,6 @@ def main():
             title="Churn Rate by Credit Score Band",
             text_auto=".2%",
             labels={"churn_rate": "Churn Rate"},
-            color_discrete_sequence=["#ff6b6b", "#ffd93d", "#6bcf7f"]
         )
         fig_credit.update_layout(height=400)
         st.plotly_chart(fig_credit, use_container_width=True)
@@ -385,7 +335,6 @@ def main():
         balance_order = ["Zero-balance", "Low-balance", "High-balance"]
         balance_summary["BalanceSegment"] = pd.Categorical(balance_summary["BalanceSegment"], categories=balance_order, ordered=True)
         balance_summary = balance_summary.sort_values("BalanceSegment")
-        
         fig_balance = px.bar(
             balance_summary,
             x="BalanceSegment",
@@ -394,42 +343,37 @@ def main():
             title="Churn Rate by Balance Segment",
             text_auto=".2%",
             labels={"churn_rate": "Churn Rate"},
-            color_discrete_sequence=["#ff6b6b", "#ffa500", "#4ecdc4"]
         )
         fig_balance.update_layout(height=400)
         st.plotly_chart(fig_balance, use_container_width=True)
 
     st.markdown("---")
 
-    # 6. SEGMENT-LEVEL CHURN ANALYSIS
-    st.subheader("🔍 Segment-Level Churn Analysis (Top 25)")
+    st.subheader("🔍 Segment-Level Churn Analysis")
     seg_summary = segment_churn_summary(filtered)
-    seg_summary_display = seg_summary.head(25).copy()
-    seg_summary_display["churn_rate"] = seg_summary_display["churn_rate"].apply(lambda x: f"{x:.2%}")
-    st.dataframe(seg_summary_display, use_container_width=True)
+    seg_out = seg_summary.head(25).copy()
+    seg_out["churn_rate"] = seg_out["churn_rate"].map(lambda x: f"{x:.2%}")
+    st.dataframe(seg_out, use_container_width=True)
 
     st.markdown("---")
 
-    # 7. HIGH-VALUE CUSTOMER EXPLORER
-    st.subheader("💎 High-Value Customer Churn Explorer (Top 25% by Balance)")
+    st.subheader("💎 High-Value Customer Churn Explorer")
     hv = high_value_metrics(filtered)
     if not hv.empty:
-        hv_display = hv.copy()
-        hv_display["ExitedRate"] = hv_display["ExitedRate"].apply(lambda x: f"{x:.2%}")
-        hv_display["AvgBalance"] = hv_display["AvgBalance"].apply(lambda x: f"€{x:,.0f}")
-        hv_display["AvgSalary"] = hv_display["AvgSalary"].apply(lambda x: f"€{x:,.0f}")
-        hv_display["BalanceThreshold"] = hv_display["BalanceThreshold"].apply(lambda x: f"€{x:,.0f}")
-        st.dataframe(hv_display, use_container_width=True)
+        hv_out = hv.copy()
+        hv_out["ExitedRate"] = hv_out["ExitedRate"].map(lambda x: f"{x:.2%}")
+        hv_out["AvgBalance"] = hv_out["AvgBalance"].map(lambda x: f"€{x:,.0f}")
+        hv_out["AvgSalary"] = hv_out["AvgSalary"].map(lambda x: f"€{x:,.0f}")
+        hv_out["BalanceThreshold"] = hv_out["BalanceThreshold"].map(lambda x: f"€{x:,.0f}")
+        st.dataframe(hv_out, use_container_width=True)
 
     st.markdown("---")
 
-    # 8. CUSTOMER PROFILE COMPARISON
     st.subheader("👥 Customer Profile Comparison")
-    
+    comp = filtered.assign(ChurnStatus=np.where(filtered["Exited"] == 1, "Exited", "Retained"))
     col_left, col_right = st.columns(2)
 
     with col_left:
-        comp = filtered.assign(ChurnStatus=np.where(filtered["Exited"] == 1, "Exited", "Retained"))
         profile_fig = px.histogram(
             comp,
             x="Balance",
@@ -437,7 +381,6 @@ def main():
             barmode="overlay",
             title="Balance Distribution by Churn Status",
             nbins=35,
-            color_discrete_map={"Exited": "#ff6b6b", "Retained": "#51cf66"}
         )
         profile_fig.update_layout(height=400)
         st.plotly_chart(profile_fig, use_container_width=True)
@@ -450,34 +393,27 @@ def main():
             color="ChurnStatus",
             title="Estimated Salary vs Balance by Churn Status",
             opacity=0.7,
-            color_discrete_map={"Exited": "#ff6b6b", "Retained": "#51cf66"}
         )
         scatter_fig.update_layout(height=400)
         st.plotly_chart(scatter_fig, use_container_width=True)
 
     st.markdown("---")
 
-    # 9. CHURN STATUS PROFILE SUMMARY
     st.subheader("📋 Churn Status Profile Summary")
     profile_summary = churn_profile_summary(comp)
-    
-    profile_display = profile_summary.copy()
-    profile_display["AvgAge"] = profile_display["AvgAge"].apply(lambda x: f"{x:.1f}")
-    profile_display["AvgBalance"] = profile_display["AvgBalance"].apply(lambda x: f"€{x:,.0f}")
-    profile_display["AvgSalary"] = profile_display["AvgSalary"].apply(lambda x: f"€{x:,.0f}")
-    profile_display["AvgTenure"] = profile_display["AvgTenure"].apply(lambda x: f"{x:.1f}")
-    
-    st.dataframe(profile_display, use_container_width=True)
+    profile_summary = profile_summary.copy()
+    profile_summary["AvgAge"] = profile_summary["AvgAge"].map(lambda x: f"{x:.1f}")
+    profile_summary["AvgBalance"] = profile_summary["AvgBalance"].map(lambda x: f"€{x:,.0f}")
+    profile_summary["AvgSalary"] = profile_summary["AvgSalary"].map(lambda x: f"€{x:,.0f}")
+    profile_summary["AvgTenure"] = profile_summary["AvgTenure"].map(lambda x: f"{x:.1f}")
+    st.dataframe(profile_summary, use_container_width=True)
 
     st.markdown("---")
 
-    # 10. AGE VS CHURN SCATTER
     st.subheader("📊 Additional Insights")
-    
     col_left, col_right = st.columns(2)
-
     with col_left:
-        age_churn_fig = px.scatter(
+        age_credit = px.scatter(
             comp,
             x="Age",
             y="CreditScore",
@@ -485,13 +421,12 @@ def main():
             title="Age vs Credit Score by Churn Status",
             size="Balance",
             opacity=0.6,
-            color_discrete_map={"Exited": "#ff6b6b", "Retained": "#51cf66"}
         )
-        age_churn_fig.update_layout(height=400)
-        st.plotly_chart(age_churn_fig, use_container_width=True)
+        age_credit.update_layout(height=400)
+        st.plotly_chart(age_credit, use_container_width=True)
 
     with col_right:
-        tenure_age_fig = px.scatter(
+        tenure_age = px.scatter(
             comp,
             x="Tenure",
             y="Age",
@@ -499,13 +434,11 @@ def main():
             title="Tenure vs Age by Churn Status",
             size="Balance",
             opacity=0.6,
-            color_discrete_map={"Exited": "#ff6b6b", "Retained": "#51cf66"}
         )
-        tenure_age_fig.update_layout(height=400)
-        st.plotly_chart(tenure_age_fig, use_container_width=True)
+        tenure_age.update_layout(height=400)
+        st.plotly_chart(tenure_age, use_container_width=True)
 
-    st.markdown("---")
-    st.success("✅ Dashboard updated with all customer data and filters applied successfully!")
+    st.success("✅ Dashboard complete and ready for use.")
 
 
 if __name__ == "__main__":
